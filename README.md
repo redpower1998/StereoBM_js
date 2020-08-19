@@ -20,7 +20,7 @@ The reference code is tested on <b>windows 10, Ubuntu 18.04</b> and requires:
 #### Run ####
 
 ```WebBrowser
->>  Open html file(image_bm.html) directly
+>>  Open html file(index.html) directly
 
 ```
 
