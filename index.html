@@ -1,0 +1,342 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>StereoBM</title>
+
+    <script id="bm_worker" type="text/javascript" charset="utf-8">
+        function worker_bm(left_Mat, right_Mat) {
+            var left_ImageGray = cvtColorRGBA2Gray(left_Mat);
+            var left_ImageSobel = sobel(left_ImageGray);
+
+            var right_ImageGray = cvtColorRGBA2Gray(right_Mat);
+            var right_ImageSobel = sobel(right_ImageGray);
+
+            var left = left_bm(left_ImageSobel, right_ImageSobel);
+            var right = right_bm(left_ImageSobel, right_ImageSobel);
+
+            var disp_out = left_right_check(left, right);
+
+            var disp = cvtColorGray2RGBA(disp_out);
+
+            return disp;
+        }
+        function Image_RGBA(_row, _col, _data, _buffer) {  //保存RGBA
+            this.row = _row || 0;
+            this.col = _col || 0;
+            this.buffer = _buffer || new ArrayBuffer(_row * _col * 4);
+            this.data = new Uint8ClampedArray(this.buffer);
+            _data && this.data.set(_data);
+        }
+        function Image_GRAY(_row, _col, _data, _buffer) {   //保存灰度
+            this.row = _row || 0;
+            this.col = _col || 0;
+            this.buffer = _buffer || new ArrayBuffer(_row * _col);
+            this.data = new Uint8ClampedArray(this.buffer);
+            _data && this.data.set(_data);
+        }
+        function cvtColorRGBA2Gray(_src) {
+            var row = _src.row,
+                col = _src.col;
+            var dst = new Image_GRAY(row, col);
+            data = dst.data;
+            data2 = _src.data;
+            for (i = 0; i < _src.row * _src.col * 4; i++) {
+                data[i] = (data2[i * 4] * 299 + data2[i * 4 + 1] * 587 + data2[i * 4 + 2] * 114) / 1000;
+            }
+            return dst;
+        }
+        function cvtColorGray2RGBA(_src) {
+            var row = _src.row,
+                col = _src.col;
+            var dst = new Image_RGBA(row, col);
+            data = dst.data;
+            data2 = _src.data;
+            for (i = 0; i < _src.row * _src.col * 4; i++) {
+                data[i] = data2[i / 4];
+                data[i + 1] = data2[i / 4];
+                data[i + 2] = data2[i / 4];
+                data[i + 3] = 255;  //透明度  
+                i += 3;
+            }
+            return dst;
+        }
+        function sobel(_src) {
+            var SOBEL_CAP = 34;
+            var height = _src.row;
+            var width = _src.col;
+            var in_image = _src.data;
+            var dst = new Image_GRAY(height, width);
+            var out_image = dst.data;
+            for (y = 1; y < height - 1; y++) {
+                for (x = 1; x < width - 1; x++) {
+                    var val = ((in_image[width * (y - 1) + x + 1] - in_image[width * (y - 1) + x - 1]) +
+                        (in_image[width * y + x + 1] - in_image[width * y + x - 1]) * 2 +
+                        (in_image[width * (y + 1) + x + 1] - in_image[width * (y + 1) + x - 1]));
+
+                    if (val > SOBEL_CAP)
+                        val = SOBEL_CAP;
+                    else if (val < -SOBEL_CAP)
+                        val = -SOBEL_CAP;
+
+                    out_image[width * y + x] = val + SOBEL_CAP; // Adding offset to prevent negative values
+                }
+            }
+            return dst;
+        }
+
+        function left_bm(left_src, right_src) {
+
+            var height = left_src.row;
+            var width = left_src.col;
+            var halfWindow = 5;
+            var dst = new Image_GRAY(height, width);
+            var dispL = dst.data;
+            var NumDisparity = 128;
+            var INVALID_DISP_VAL = 0;
+
+            var imgL = left_src.data;
+            var imgR = right_src.data;
+
+            for (y = halfWindow; y < height - halfWindow; y++) {
+                for (x = halfWindow; x < width - halfWindow; x++) {
+                    var min_costL = 32767;
+                    dispL[y * width + x] = INVALID_DISP_VAL;
+                    for (d = 0; d < Math.min(x - halfWindow, NumDisparity); d++) {
+                        var win_cost = 0;
+                        var diff = 0;
+                        for (y1 = y - halfWindow; y1 <= y + halfWindow; y1++) {
+                            for (x1 = x - halfWindow; x1 <= x + halfWindow; x1++) {
+                                diff = Math.abs(imgL[y1 * width + x1] - imgR[y1 * width + x1 - d]);
+                                win_cost += Math.abs(diff);
+                            }
+                        }
+                        if (win_cost < min_costL) {
+                            min_costL = win_cost;
+                            dispL[y * width + x] = d;
+                        }
+                    }
+                }
+            }
+            return dst;
+        }
+
+        function right_bm(left_src, right_src) {
+            var height = left_src.row;
+            var width = left_src.col;
+            var halfWindow = 5;
+            var dst = new Image_GRAY(height, width);
+            var dispR = dst.data;
+            var NumDisparity = 128;
+            var INVALID_DISP_VAL = 0;
+
+            var imgL = left_src.data;
+            var imgR = right_src.data;
+
+            for (y = halfWindow; y < height - halfWindow; y++) {
+                for (x = halfWindow; x < width - halfWindow; x++) {
+                    var min_costL = 32767;
+                    dispR[y * width + x] = INVALID_DISP_VAL;
+                    for (d = 0; d < Math.min(width - x - halfWindow, NumDisparity); d++) {
+                        var win_cost = 0;
+                        var diff = 0;
+                        for (y1 = y - halfWindow; y1 <= y + halfWindow; y1++) {
+                            for (x1 = x - halfWindow; x1 <= x + halfWindow; x1++) {
+                                diff = Math.abs(imgR[y1 * width + x1] - imgL[y1 * width + x1 + d]);
+                                win_cost += Math.abs(diff);
+                            }
+                        }
+                        if (win_cost < min_costL) {
+                            min_costL = win_cost;
+                            dispR[y * width + x] = d;
+                        }
+                    }
+                }
+            }
+            return dst;
+        }
+        function left_right_check(left_src, right_src) {
+            var height = left_src.row;
+            var width = left_src.col;
+            var dst = new Image_GRAY(height, width);
+
+            var disp = dst.data;
+            var INVALID_DISP_VAL = 0;
+
+            var disp_left = left_src.data;
+            var disp_right = right_src.data;
+
+            for (y = 0; y < height; y++) {
+                for (x = 0; x < width; x++) {
+                    disp[y * width + x] = disp_left[y * width + x] * 2;
+                    var left = disp_left[y * width + x];
+                    if (x - left > 0) {
+                        var right = disp_right[y * width + x - left];
+                        var dispDiff = Math.abs(left - right);
+                        if (dispDiff > 1)
+                            disp[y * width + x] = 0;
+
+                    }
+                }
+            }
+            return dst;
+        }
+
+
+        self.addEventListener("message", function (e) {
+            var left_Mat = e.data[0];
+            var right_Mat = e.data[1];
+            var out_disp = worker_bm(left_Mat, right_Mat);
+            postMessage(out_disp);
+        }, false);
+    </script>
+    <script type="text/javascript" charset="utf-8">
+
+        function imread(_image) {
+            var width = _image.width,
+                height = _image.height;
+            var canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            canvas.id = "temp_canvas";
+
+            canvas.getContext("2d").drawImage(_image, 0, 0);
+            var imageData = canvas.getContext("2d").getImageData(0, 0, width, height),
+                tempMat = new Image_RGBA(height, width, imageData.data);
+            imageData = null;
+            canvas.getContext("2d").clearRect(0, 0, width, height);
+            canvas = null;
+            return tempMat;
+        }
+        function StereoBM(left_Canvas, left_url, right_url) {
+            this.left_canvas = left_Canvas;
+
+            this.left_Ctx = this.left_canvas.getContext("2d");
+            this.left_url = left_url;
+            this.right_url = right_url;
+
+            var _this = this;
+            var is_left_ok = false;
+            var is_right_ok = false;
+            var left_img = new Image();
+            left_img.onload = function () {
+                is_left_ok = true;
+                if (is_right_ok) {
+                    do_bm(left_img, right_img);
+                }
+            };
+            left_img.src = this.left_url;
+
+            var right_img = new Image();
+            right_img.onload = function () {
+
+                is_right_ok = true;
+                if (is_left_ok) {
+                    do_bm(left_img, right_img);
+                }
+            }
+            right_img.src = _this.right_url;
+
+            function do_bm(left_img, right_img) {
+                var _this = this;
+                var left_Mat = imread(left_img);
+                var right_Mat = imread(right_img);
+
+                var bm_blob = new Blob([document.querySelector('#bm_worker').textContent]);
+                var bm_url = window.URL.createObjectURL(bm_blob);
+                worker = new Worker(bm_url);
+                var msg = new Array(left_Mat, right_Mat);
+                worker.postMessage(msg);
+                document.getElementById("info_message").innerHTML = "开始计算,可能时间较长,请耐心等待......";
+                worker.onmessage = function (event) {
+                    var left_ImageRGBA = event.data;
+                    _this.left_canvas.width = left_Mat.col;
+                    _this.left_canvas.height = left_Mat.row;
+
+                    imageData = _this.left_Ctx.createImageData(left_Mat.col, right_Mat.row);
+                    imageData.data.set(left_ImageRGBA.data);
+
+                    _this.left_Ctx.putImageData(imageData, 0, 0);
+                    document.getElementById("info_message").innerHTML = "计算完成!";
+                    worker.terminate();
+                    worker = undefined;
+                };
+
+            }
+        }
+
+    </script>
+</head>
+
+<body>
+    <div>
+        左图片文件 ： <input type="file" name="file" id="left_img_file_id" />
+        <br>
+        右图片文件 ： <input type="file" name="file" id="right_img_file_id" />
+        <br>
+        <button type="submit" name="btn" value="提交" id="btnId" onclick="begin_bm()">开始计算</button>
+
+    </div>
+    <canvas id="left_canvas" width="200" height="100"></canvas>
+    <canvas id="right_canvas" width="200" height="100"></canvas>
+    <br>
+    <canvas id="disp_image" width="200" height="100"></canvas>
+    <br>
+    <div id="info_message">双目块匹配算法，请选择左右图片文件</div>
+    <script type="text/javascript" charset="utf-8">
+
+        function begin_bm() {
+
+            // 获取文件
+            const leftobjFile = document.getElementById('left_img_file_id')
+            if (leftobjFile.value === '') {
+                alert('请选择左图像文件！')
+                return
+            }
+            const rightobjFile = document.getElementById('right_img_file_id')
+            if (rightobjFile.value === '') {
+                alert('请选择右图像文件！')
+                return
+            }
+            var left_Canvas = document.getElementById("disp_image");
+
+            //读取文件内容
+            var left_reader = new FileReader();
+            left_reader.readAsDataURL(leftobjFile.files[0]);
+            var right_reader = new FileReader();
+            right_reader.readAsDataURL(rightobjFile.files[0]);
+            var is_left_ok = false;
+            var is_right_ok = false;
+            left_reader.onload = function (e) {
+                //将结果显示到canvas
+                show_canvas(document.getElementById('left_canvas'), left_reader.result);
+                is_left_ok = true;
+                if (is_right_ok) {  //左右图片都读取OK才能执行BM计算
+                    StereoBM(left_Canvas, left_reader.result, right_reader.result);
+                }
+            }
+            right_reader.onload = function (e) {
+                show_canvas(document.getElementById('right_canvas'), right_reader.result);
+                is_right_ok = true;
+                if (is_left_ok) { //左右图片都读取OK才能执行BM计算
+                    StereoBM(left_Canvas, left_reader.result, right_reader.result);
+                }
+            }
+
+            function show_canvas(canvas, dataUrl) {
+                var ctx = canvas.getContext('2d');
+                var img = new Image();
+                img.onload = function () {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0, img.width, img.height);
+                }
+                img.src = dataUrl;
+            }
+        }
+
+    </script>
+</body>
+
+</html>
