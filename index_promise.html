@@ -231,62 +231,34 @@
             canvas = null;
             return tempMat;
         }
-        function StereoBM(left_Canvas, left_url, right_url) {
-            this.left_canvas = left_Canvas;
 
-            this.left_Ctx = this.left_canvas.getContext("2d");
-            this.left_url = left_url;
-            this.right_url = right_url;
+        function StereoBM(disp_Canvas, left_img, right_img) {
+            var left_Ctx = disp_Canvas.getContext("2d");
+            var left_Mat = imread(left_img);
+            var right_Mat = imread(right_img);
 
-            var _this = this;
-            var is_left_ok = false;
-            var is_right_ok = false;
-            var left_img = new Image();
-            left_img.onload = function () {
-                is_left_ok = true;
-                if (is_right_ok) {
-                    do_bm(left_img, right_img);
-                }
+            var bm_blob = new Blob([document.querySelector('#bm_worker').textContent]);
+            var bm_url = window.URL.createObjectURL(bm_blob);
+            worker = new Worker(bm_url);
+            var msg = new Array(left_Mat, right_Mat);
+            worker.postMessage(msg);
+            document.getElementById("info_message").innerHTML = "Execute BM, it may take a long time, please wait patiently......";
+            worker.onmessage = function (event) {
+                var left_ImageRGBA = event.data;
+                disp_Canvas.width = left_Mat.col;
+                disp_Canvas.height = left_Mat.row;
+
+                imageData = left_Ctx.createImageData(left_Mat.col, right_Mat.row);
+                imageData.data.set(left_ImageRGBA.data);
+
+                left_Ctx.putImageData(imageData, 0, 0);
+                document.getElementById("info_message").innerHTML = "Done!";
+                worker.terminate();
+                worker = undefined;
             };
-            left_img.src = this.left_url;
 
-            var right_img = new Image();
-            right_img.onload = function () {
-
-                is_right_ok = true;
-                if (is_left_ok) {
-                    do_bm(left_img, right_img);
-                }
-            }
-            right_img.src = _this.right_url;
-
-            function do_bm(left_img, right_img) {
-                var _this = this;
-                var left_Mat = imread(left_img);
-                var right_Mat = imread(right_img);
-
-                var bm_blob = new Blob([document.querySelector('#bm_worker').textContent]);
-                var bm_url = window.URL.createObjectURL(bm_blob);
-                worker = new Worker(bm_url);
-                var msg = new Array(left_Mat, right_Mat);
-                worker.postMessage(msg);
-                document.getElementById("info_message").innerHTML = "Execute BM, it may take a long time, please wait patiently......";
-                worker.onmessage = function (event) {
-                    var left_ImageRGBA = event.data;
-                    _this.left_canvas.width = left_Mat.col;
-                    _this.left_canvas.height = left_Mat.row;
-
-                    imageData = _this.left_Ctx.createImageData(left_Mat.col, right_Mat.row);
-                    imageData.data.set(left_ImageRGBA.data);
-
-                    _this.left_Ctx.putImageData(imageData, 0, 0);
-                    document.getElementById("info_message").innerHTML = "Done!";
-                    worker.terminate();
-                    worker = undefined;
-                };
-
-            }
         }
+
 
     </script>
 </head>
@@ -306,42 +278,35 @@
     <canvas id="disp_image" width="200" height="100"></canvas>
     <br>
     <div id="info_message">Binocular block matching algorithm, please select left and right image files</div>
+
     <script type="text/javascript" charset="utf-8">
 
         function begin_bm() {
 
-            const leftobjFile = document.getElementById('left_img_file_id')
-            if (leftobjFile.value === '') {
-                alert('Please select the left image file!')
-                return
-            }
-            const rightobjFile = document.getElementById('right_img_file_id')
-            if (rightobjFile.value === '') {
-                alert('Please select the right image file!')
-                return
-            }
-            var left_Canvas = document.getElementById("disp_image");
+            function read_image(image_file) {
+                let p = new Promise(function (resolve, reject) {
+                    const objFile = document.getElementById(image_file)
+                    var image_reader = new FileReader();
+                    image_reader.onload = function (e) {
+                        resolve(image_reader.result);
+                    };
+                    image_reader.readAsDataURL(objFile.files[0]);
+                });
+                return p;
 
-            var left_reader = new FileReader();
-            left_reader.readAsDataURL(leftobjFile.files[0]);
-            var right_reader = new FileReader();
-            right_reader.readAsDataURL(rightobjFile.files[0]);
-            var is_left_ok = false;
-            var is_right_ok = false;
-            left_reader.onload = function (e) {
-                show_canvas(document.getElementById('left_canvas'), left_reader.result);
-                is_left_ok = true;
-                if (is_right_ok) {
-                    StereoBM(left_Canvas, left_reader.result, right_reader.result);
-                }
             }
-            right_reader.onload = function (e) {
-                show_canvas(document.getElementById('right_canvas'), right_reader.result);
-                is_right_ok = true;
-                if (is_left_ok) {
-                    StereoBM(left_Canvas, left_reader.result, right_reader.result);
-                }
-            }
+
+            function load_image(image_url) {
+                let p = new Promise(function (resolve, reject) {
+                    var img = new Image();
+                    img.onload = function () {
+                        resolve(img);
+                    }
+                    img.src = image_url;
+                });
+                return p;
+            };
+
 
             function show_canvas(canvas, dataUrl) {
                 var ctx = canvas.getContext('2d');
@@ -353,6 +318,37 @@
                 }
                 img.src = dataUrl;
             }
+
+            if (document.getElementById("left_img_file_id").value === '') {
+                alert('Please select the left image file!')
+                return
+            }
+            if (document.getElementById("right_img_file_id").value === '') {
+                alert('Please select the right image file!')
+                return
+            }
+            var images_url = {};
+            var images_data = {};
+            var disp_Canvas = document.getElementById("disp_image");
+
+            read_image('left_img_file_id').then(function (data) {
+                show_canvas(document.getElementById('left_canvas'), data);
+                images_url["left"] = data;
+                return read_image('right_img_file_id');
+            }).then(function (data) {
+                show_canvas(document.getElementById('right_canvas'), data);
+                images_url["right"] = data;
+                return load_image(images_url["left"]);
+            }).then(function (data) {
+                images_data["left"] = data;
+                return load_image(images_url["right"]);
+            }).then(function (data) {
+                images_data["right"] = data;
+            }).then(function () {
+                StereoBM(disp_Canvas, images_data["left"], images_data["right"]);
+            });
+
+
         }
 
     </script>
