@@ -6,6 +6,10 @@
     <title>StereoBM</title>
 
     <script id="bm_worker" type="text/javascript" charset="utf-8">
+
+        var color_map = [0x000080, 0x000084, 0x000089, 0x00008d, 0x000092, 0x000096, 0x00009b, 0x00009f, 0x0000a4, 0x0000a8, 0x0000ad, 0x0000b2, 0x0000b6, 0x0000bb, 0x0000bf, 0x0000c4, 0x0000c8, 0x0000cd, 0x0000d1, 0x0000d6, 0x0000da, 0x0000df, 0x0000e3, 0x0000e8, 0x0000ed, 0x0000f1, 0x0000f6, 0x0000fa, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0004ff, 0x0008ff, 0x000cff, 0x0010ff, 0x0014ff, 0x0018ff, 0x001cff, 0x0020ff, 0x0024ff, 0x0028ff, 0x002cff, 0x0030ff, 0x0034ff, 0x0038ff, 0x003cff, 0x0040ff, 0x0044ff, 0x0048ff, 0x004cff, 0x0050ff, 0x0054ff, 0x0058ff, 0x005cff, 0x0060ff, 0x0064ff, 0x0068ff, 0x006cff, 0x0070ff, 0x0074ff, 0x0078ff, 0x007cff, 0x0080ff, 0x0084ff, 0x0088ff, 0x008cff, 0x0090ff, 0x0094ff, 0x0098ff, 0x009cff, 0x00a0ff, 0x00a4ff, 0x00a8ff, 0x00acff, 0x00b0ff, 0x00b4ff, 0x00b8ff, 0x00bcff, 0x00c0ff, 0x00c4ff, 0x00c8ff, 0x00ccff, 0x00d0ff, 0x00d4ff, 0x00d8ff, 0x00dcfe, 0x00e0fb, 0x00e4f8, 0x02e8f4, 0x06ecf1, 0x09f0ee, 0x0cf4eb, 0x0ff8e7, 0x13fce4, 0x16ffe1, 0x19ffde, 0x1cffdb, 0x1fffd7, 0x23ffd4, 0x26ffd1, 0x29ffce, 0x2cffca, 0x30ffc7, 0x33ffc4, 0x36ffc1, 0x39ffbe, 0x3cffba, 0x40ffb7, 0x43ffb4, 0x46ffb1, 0x49ffad, 0x4dffaa, 0x50ffa7, 0x53ffa4, 0x56ffa0, 0x5aff9d, 0x5dff9a, 0x60ff97, 0x63ff94, 0x66ff90, 0x6aff8d, 0x6dff8a, 0x70ff87, 0x73ff83, 0x77ff80, 0x7aff7d, 0x7dff7a, 0x80ff77, 0x83ff73, 0x87ff70, 0x8aff6d, 0x8dff6a, 0x90ff66, 0x94ff63, 0x97ff60, 0x9aff5d, 0x9dff5a, 0xa0ff56, 0xa4ff53, 0xa7ff50, 0xaaff4d, 0xadff49, 0xb1ff46, 0xb4ff43, 0xb7ff40, 0xbaff3c, 0xbeff39, 0xc1ff36, 0xc4ff33, 0xc7ff30, 0xcaff2c, 0xceff29, 0xd1ff26, 0xd4ff23, 0xd7ff1f, 0xdbff1c, 0xdeff19, 0xe1ff16, 0xe4ff13, 0xe7ff0f, 0xebff0c, 0xeeff09, 0xf1fc06, 0xf4f802, 0xf8f500, 0xfbf100, 0xfeed00, 0xffea00, 0xffe600, 0xffe200, 0xffde00, 0xffdb00, 0xffd700, 0xffd300, 0xffd000, 0xffcc00, 0xffc800, 0xffc400, 0xffc100, 0xffbd00, 0xffb900, 0xffb600, 0xffb200, 0xffae00, 0xffab00, 0xffa700, 0xffa300, 0xff9f00, 0xff9c00, 0xff9800, 0xff9400, 0xff9100, 0xff8d00, 0xff8900, 0xff8600, 0xff8200, 0xff7e00, 0xff7a00, 0xff7700, 0xff7300, 0xff6f00, 0xff6c00, 0xff6800, 0xff6400, 0xff6000, 0xff5d00, 0xff5900, 0xff5500, 0xff5200, 0xff4e00, 0xff4a00, 0xff4700, 0xff4300, 0xff3f00, 0xff3b00, 0xff3800, 0xff3400, 0xff3000, 0xff2d00, 0xff2900, 0xff2500, 0xff2200, 0xff1e00, 0xff1a00, 0xff1600, 0xff1300, 0xfa0f00, 0xf60b00, 0xf10800, 0xed0400, 0xe80000, 0xe40000, 0xdf0000, 0xda0000, 0xd60000, 0xd10000, 0xcd0000, 0xc80000, 0xc40000, 0xbf0000, 0xbb0000, 0xb60000, 0xb20000, 0xad0000, 0xa80000, 0xa40000, 0x9f0000, 0x9b0000, 0x960000, 0x920000, 0x8d0000, 0x890000, 0x840000, 0x800000];
+
+
         function worker_bm(left_Mat, right_Mat) {
             var left_ImageGray = cvtColorRGBA2Gray(left_Mat);
             var left_ImageSobel = sobel(left_ImageGray);
@@ -18,18 +22,18 @@
 
             var disp_out = left_right_check(left, right);
 
-            var disp = cvtColorGray2RGBA(disp_out);
+            var disp = cvtColorGray2RGBA_ColorMap(disp_out);
 
             return disp;
         }
-        function Image_RGBA(_row, _col, _data, _buffer) {  //保存RGBA
+        function Image_RGBA(_row, _col, _data, _buffer) {
             this.row = _row || 0;
             this.col = _col || 0;
             this.buffer = _buffer || new ArrayBuffer(_row * _col * 4);
             this.data = new Uint8ClampedArray(this.buffer);
             _data && this.data.set(_data);
         }
-        function Image_GRAY(_row, _col, _data, _buffer) {   //保存灰度
+        function Image_GRAY(_row, _col, _data, _buffer) {
             this.row = _row || 0;
             this.col = _col || 0;
             this.buffer = _buffer || new ArrayBuffer(_row * _col);
@@ -53,12 +57,28 @@
             var dst = new Image_RGBA(row, col);
             data = dst.data;
             data2 = _src.data;
-            for (i = 0; i < _src.row * _src.col * 4; i++) {
-                data[i] = data2[i / 4];
-                data[i + 1] = data2[i / 4];
-                data[i + 2] = data2[i / 4];
-                data[i + 3] = 255;  //透明度  
-                i += 3;
+            for (i = 0; i < _src.row * _src.col * 4;) {
+                data[i++] = data2[i / 4];
+                data[i++] = data2[i / 4];
+                data[i++] = data2[i / 4];
+                data[i++] = 255;
+            }
+            return dst;
+        }
+        function cvtColorGray2RGBA_ColorMap(_src) {
+            var row = _src.row,
+                col = _src.col;
+            var dst = new Image_RGBA(row, col);
+            data = dst.data;
+            data2 = _src.data;
+            for (i = 0; i < _src.row * _src.col * 4;) {
+
+                var pix = data2[i / 4];
+                var color_val = color_map[pix];
+                data[i++] = color_val & 0x00ff0000;
+                data[i++] = color_val & 0x0000ff00;
+                data[i++] = color_val & 0x000000ff;
+                data[i++] = 255;
             }
             return dst;
         }
@@ -80,7 +100,7 @@
                     else if (val < -SOBEL_CAP)
                         val = -SOBEL_CAP;
 
-                    out_image[width * y + x] = val + SOBEL_CAP; // Adding offset to prevent negative values
+                    out_image[width * y + x] = val + SOBEL_CAP;
                 }
             }
             return dst;
@@ -248,7 +268,7 @@
                 worker = new Worker(bm_url);
                 var msg = new Array(left_Mat, right_Mat);
                 worker.postMessage(msg);
-                document.getElementById("info_message").innerHTML = "开始计算,可能时间较长,请耐心等待......";
+                document.getElementById("info_message").innerHTML = "Start BM, it may take a long time, please wait patiently......";
                 worker.onmessage = function (event) {
                     var left_ImageRGBA = event.data;
                     _this.left_canvas.width = left_Mat.col;
@@ -258,7 +278,7 @@
                     imageData.data.set(left_ImageRGBA.data);
 
                     _this.left_Ctx.putImageData(imageData, 0, 0);
-                    document.getElementById("info_message").innerHTML = "计算完成!";
+                    document.getElementById("info_message").innerHTML = "Done!";
                     worker.terminate();
                     worker = undefined;
                 };
@@ -271,11 +291,11 @@
 
 <body>
     <div>
-        左图片文件 ： <input type="file" name="file" id="left_img_file_id" />
+        Left Image: <input type="file" name="file" id="left_img_file_id" />
         <br>
-        右图片文件 ： <input type="file" name="file" id="right_img_file_id" />
+        Right Image: <input type="file" name="file" id="right_img_file_id" />
         <br>
-        <button type="submit" name="btn" value="提交" id="btnId" onclick="begin_bm()">开始计算</button>
+        <button type="submit" name="btn" value="提交" id="btnId" onclick="begin_bm()">Begin</button>
 
     </div>
     <canvas id="left_canvas" width="200" height="100"></canvas>
@@ -283,25 +303,23 @@
     <br>
     <canvas id="disp_image" width="200" height="100"></canvas>
     <br>
-    <div id="info_message">双目块匹配算法，请选择左右图片文件</div>
+    <div id="info_message">Binocular block matching algorithm, please select left and right image files</div>
     <script type="text/javascript" charset="utf-8">
 
         function begin_bm() {
 
-            // 获取文件
             const leftobjFile = document.getElementById('left_img_file_id')
             if (leftobjFile.value === '') {
-                alert('请选择左图像文件！')
+                alert('Please select the left image file!')
                 return
             }
             const rightobjFile = document.getElementById('right_img_file_id')
             if (rightobjFile.value === '') {
-                alert('请选择右图像文件！')
+                alert('Please select the right image file!')
                 return
             }
             var left_Canvas = document.getElementById("disp_image");
 
-            //读取文件内容
             var left_reader = new FileReader();
             left_reader.readAsDataURL(leftobjFile.files[0]);
             var right_reader = new FileReader();
@@ -309,17 +327,16 @@
             var is_left_ok = false;
             var is_right_ok = false;
             left_reader.onload = function (e) {
-                //将结果显示到canvas
                 show_canvas(document.getElementById('left_canvas'), left_reader.result);
                 is_left_ok = true;
-                if (is_right_ok) {  //左右图片都读取OK才能执行BM计算
+                if (is_right_ok) {
                     StereoBM(left_Canvas, left_reader.result, right_reader.result);
                 }
             }
             right_reader.onload = function (e) {
                 show_canvas(document.getElementById('right_canvas'), right_reader.result);
                 is_right_ok = true;
-                if (is_left_ok) { //左右图片都读取OK才能执行BM计算
+                if (is_left_ok) {
                     StereoBM(left_Canvas, left_reader.result, right_reader.result);
                 }
             }
